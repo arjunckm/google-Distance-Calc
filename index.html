@@ -1,0 +1,236 @@
+<html>
+
+<head>
+    <title>Calculate the Distance Between Multiple Addresses</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script defer src="https://maps.googleapis.com/maps/api/js?libraries=places&language=en&key=ENTER_YOUR_API_KEY"
+        type="text/javascript"></script>
+    <link href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" id="bootstrap-css" rel="stylesheet" />
+    <link rel="stylesheet" href="libs/DataTables/datatables.min.css">
+    <link rel="stylesheet" href="libs/DataTables/export/buttons.dataTables.min.css">
+    <style>
+        .input-group-btn>.btn {
+            margin-top: 25px;
+        }
+
+        .loaderpage {
+            display: none;
+            position: fixed;
+            top: 0%;
+            left: 0%;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            filter: alpha(opacity=70);
+            background: url(img/loads.gif) center no-repeat rgba(26, 26, 26, 0.7);
+            background-size: 125px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loaderpage"></div>
+    <div class="container">
+        <nav class="navbar navbar-default">
+            <div class="container-fluid">
+                <div class="navbar-header">
+                    <a class="navbar-brand" href="#">Distance Calculator</a>
+                </div>
+                <ul class="nav navbar-nav">
+                    <li class="active"><a href="index.html">Multiple</a></li>
+                    <li><a href="single.html">single</a></li>
+                    <li><a href="withfile.html">File Address</a></li>
+                </ul>
+            </div>
+        </nav>
+        <div class="row">
+            <div class="jumbotron">
+                <h2>Calculate the Distance Between Multiple Addresses</h2>
+            </div>
+
+            <div class="col-md-12">
+                <form id="distance_form">
+                    <div class="col-md-7 form-group" id="appendOrigin">
+                        <div class="col-md-12 input-group">
+                            <label>Origin: </label>
+                            <input class="form-control" id="from_places" name="from_places[]"
+                                placeholder="Enter a location" />
+                            <div class="input-group-btn">
+                                <button type="button" name="oriAdd" id="oriAdd"
+                                    class="btn btn-success btn-sm">+</button>
+                            </div>
+                            <input id="origin" name="origin[]" required="" type="hidden" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-5 form-group">
+                        <label>Destination: </label>
+                        <input class="form-control" id="to_places" name="to_places" required
+                            placeholder="Enter a location" />
+                        <input id="destination" name="destination" required="" type="hidden" />
+                    </div>
+                    <div class="col-md-12 form-group">
+                        <input class="btn btn-primary" type="submit" value="Calculate" />
+                    </div>
+
+                </form>
+            </div>
+            <div class="col-md-12" style="margin-bottom: 150px;">
+                <div id="ShowResult">
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="libs/DataTables/datatables.min.js"></script>
+    <script src="libs/DataTables/export/dataTables.buttons.min.js"></script>
+    <script src="libs/DataTables/export/jszip.min.js"></script>
+    <script src="libs/DataTables/export/pdfmake.min.js"></script>
+    <script src="libs/DataTables/export/vfs_fonts.js"></script>
+    <script src="libs/DataTables/export/buttons.html5.min.js"></script>
+    <script>
+        $(function () {
+            // add input listeners
+            google.maps.event.addDomListener(window, 'load', function () {
+                var from_places = new google.maps.places.Autocomplete(document.getElementById('from_places'));
+                var to_places = new google.maps.places.Autocomplete(document.getElementById('to_places'));
+
+                google.maps.event.addListener(from_places, 'place_changed', function () {
+                    var from_place = from_places.getPlace();
+                    var from_address = from_place.formatted_address;
+                    $('#origin').val(from_address);
+                });
+
+                google.maps.event.addListener(to_places, 'place_changed', function () {
+                    var to_place = to_places.getPlace();
+                    var to_address = to_place.formatted_address;
+                    $('#destination').val(to_address);
+                });
+
+            });
+            // calculate distance
+            var finalData = [];
+            function calculateDistance(source, destni) {
+                var origin = source;
+                var destination = destni;
+                origin.forEach(singleOri => {
+                    var service = new google.maps.DistanceMatrixService();
+                    service.getDistanceMatrix(
+                        {
+                            origins: [singleOri],
+                            destinations: [destination],
+                            travelMode: google.maps.TravelMode.DRIVING,
+                            unitSystem: google.maps.UnitSystem.IMPERIAL, // miles and feet.
+                            // unitSystem: google.maps.UnitSystem.metric, // kilometers and meters.
+                            avoidHighways: false,
+                            avoidTolls: false
+                        }, callback);
+                });
+                //console.log("in: ", finalData);
+                setTimeout(function () {
+                    $("#ShowResult").empty();
+                    var platformTB = $("<table>").addClass("table table-striped table-bordered").attr({ id: "listsubmitted_Table" }).css({ width: "100%" }).appendTo("#ShowResult");
+                    $("<thead>").appendTo(platformTB);
+                    $("<tr>").appendTo("#listsubmitted_Table thead");
+                    $("<th>").html("Sl.No.").appendTo("#listsubmitted_Table thead tr");
+                    $("<th>").html("Source").appendTo("#listsubmitted_Table thead tr");
+                    $("<th>").html("Destination").appendTo("#listsubmitted_Table thead tr");
+                    $("<th>").html("Distance in KM").appendTo("#listsubmitted_Table thead tr");
+                    $("<th>").html("Duration in Hrs").appendTo("#listsubmitted_Table thead tr");
+                    $("<th>").html("Duration in Mins").appendTo("#listsubmitted_Table thead tr");
+                    $("<tbody>").appendTo(platformTB);
+                    for (var i = 0; i < finalData.length; i++) {
+                        $("<tr>").attr({ id: "listsubmitted_Table" + i }).appendTo("#listsubmitted_Table tbody");
+                        $("<td>").html(i + 1).appendTo("#listsubmitted_Table" + i);
+                        $("<td>").html(finalData[i].startingPoint).appendTo("#listsubmitted_Table" + i);
+                        $("<td>").html(finalData[i].endingPoint).appendTo("#listsubmitted_Table" + i);
+                        $("<td>").html(finalData[i].distance_in_kilo).appendTo("#listsubmitted_Table" + i);
+                        $("<td>").html(finalData[i].duration_text).appendTo("#listsubmitted_Table" + i);
+                        $("<td>").html(finalData[i].duration_value).appendTo("#listsubmitted_Table" + i);
+                    }
+                    $(".loaderpage").fadeOut();
+                    var sortTable = $("#listsubmitted_Table").dataTable({
+                        dom: 'Bfrtip',
+                        buttons: [
+                            'excelHtml5',
+                            'csvHtml5',
+                            'pdfHtml5'
+                        ]
+                    });
+                    sortTable.order([4, 'asc']).draw();
+                }, 1000);
+            }
+            // get distance results
+            function callback(response, status) {
+                if (status != google.maps.DistanceMatrixStatus.OK) {
+                    // $('#ShowResult').html(err);
+                } else {
+                    var origin = response.originAddresses[0];
+                    var destination = response.destinationAddresses[0];
+                    if (response.rows[0].elements[0].status === "ZERO_RESULTS") {
+                        //$('#ShowResult').html("Better get on a plane. There are no roads between " + origin + " and " + destination);
+                    } else {
+                        //console.log(response);
+                        var distance = response.rows[0].elements[0].distance;
+                        var duration = response.rows[0].elements[0].duration;
+
+                        var distance_in_kilo = (distance.value / 1000).toFixed(2); // the kilom
+                        var duration_text = duration.text;
+                        var duration_value = (duration.value / 60).toFixed(2);
+                        var startingPoint = response.originAddresses[0];
+                        var endingPoint = response.destinationAddresses[0];
+                        finalData.push({ distance_in_kilo, duration_text, duration_value, startingPoint, endingPoint });
+
+                    }
+                }
+            }
+            // print results on submit the form
+            $('#distance_form').submit(function (e) {
+                finalData = [];
+                e.preventDefault();
+                $(".loaderpage").fadeIn();
+                var destination = $("#destination").val();
+                var source = $("input[name='from_places[]']").map(function () { return $(this).val(); }).get();
+                calculateDistance(source, destination);
+
+            });
+
+
+            var i = 1;
+            $('#oriAdd').click(function () {
+                i++;
+                var inputGrp = $('<div>').addClass("col-md-12 input-group").attr({ 'id': 'row' + i }).appendTo("#appendOrigin");
+                $("<label>").html("Origin: ").appendTo(inputGrp);
+                $("<input>").addClass("form-control").attr({ "id": "from_places" + i, "data-vals": i, "name": "from_places[]", "placeholder": "Enter a location" }).appendTo(inputGrp);
+                $("<input>").attr({ "id": "origin" + i, "name": "origin[]", "type": "hidden" }).appendTo(inputGrp);
+
+                var inpbtn = $("<div>").addClass("input-group-btn").appendTo(inputGrp);
+                $("<button>").addClass("btn btn-danger btn-sm btn_remove").attr({ "type": "button", "name": "remove", "id": i }).text("X").appendTo(inpbtn);
+
+
+                var toPla = 'from_places' + i;
+                var formOrg = 'origin' + i;
+                var from_places = new google.maps.places.Autocomplete(document.getElementById(toPla));
+                google.maps.event.addListener(from_places, 'place_changed', function () {
+                    var from_place = from_places.getPlace();
+                    var from_address = from_place.formatted_address;
+                    console.log(formOrg);
+                    $("#" + formOrg).val(from_address);
+                });
+
+            });
+
+            $(document).on('click', '.btn_remove', function () {
+                var button_id = $(this).attr("id");
+                $('#row' + button_id + '').remove();
+            });
+
+        });
+
+    </script>
+</body>
+
+</html>
